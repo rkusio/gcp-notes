@@ -25,8 +25,8 @@
   block:
     - name: Extract zone and instance name from URI
       set_fact:
-        instance_details_list: >-
-          {{ instance_uris | map('regex_search', r'/zones/(?P<zone>[a-z0-9-]+)/instances/(?P<name>[a-z0-9-]+)', '\g<zone> \g<name>') | map('split', ' ') | map('zip', ['zone', 'name']) | list }}
+        instance_details_list: "{{ instance_details_list | default([]) + [{'zone': item.split('/zones/')[1].split('/instances/')[0], 'name': item.split('/instances/')[1]}] }}"
+      with_items: "{{ instance_uris }}"
 
     - name: Fetch details for each instance
       uri:
@@ -42,7 +42,12 @@
 
     - name: Construct full hostnames
       set_fact:
-        hostname_full_list: "{{ instance_metadata_results.results | map(attribute='item') | map('combine', { 'hostname': (item.name + '.' + item.zone.split('/')[-1] + '.c.' + project_id + '.internal') }) | map(attribute='hostname') | list }}"
+        hostname_full_list: >-
+          {{
+            instance_details_list | map(
+              lambda x: x.name + '.' + x.zone + '.c.' + project_id + '.internal'
+            ) | list
+          }}
 
 - name: Display full hostnames
   debug:
