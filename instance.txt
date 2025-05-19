@@ -40,14 +40,10 @@
         label: "{{ item.name }}"
       register: instance_metadata_results
 
-    - name: Construct full hostnames
+    - name: Construct full hostnames iteratively
       set_fact:
-        hostname_full_list: >-
-          {{
-            instance_details_list | map(
-              lambda x: x.name + '.' + x.zone + '.c.' + project_id + '.internal'
-            ) | list
-          }}
+        hostname_full_list: "{{ hostname_full_list | default([]) + [item.name + '.' + item.zone + '.c.' + project_id + '.internal'] }}"
+      with_items: "{{ instance_details_list }}"
 
 - name: Display full hostnames
   debug:
