@@ -1,0 +1,50 @@
+---
+# tasks/main.yml
+- name: Get OAuth2 token
+  command: "gcloud auth print-access-token"
+  register: token_result
+
+- name: Extract token
+  set_fact:
+    access_token: "{{ token_result.stdout }}"
+
+- name: Get list of managed instances in regional MIG
+  uri:
+    url: "https://compute.googleapis.com/compute/v1/projects/{{ project_id }}/regions/{{ region }}/instanceGroupManagers/{{ group_name }}/listManagedInstances"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ access_token }}"
+    return_content: yes
+  register: managed_instances_result
+
+- name: Parse list of instance URIs
+  set_fact:
+    instance_uris: "{{ managed_instances_result.json.managedInstances | map(attribute='instance') | list }}"
+
+- name: Iterate over instance URIs
+  block:
+    - name: Extract zone and instance name from URI
+      set_fact:
+        instance_details_list: >-
+          {{ instance_uris | map('extract', r'/(?P<zone>[a-z0-9-]+/zones/[a-z0-9-]+)/instances/(?P<name>[a-z0-9-]+)', ['zone', 'name']) | list }}
+
+    - name: Fetch details for each instance
+      uri:
+        url: "https://compute.googleapis.com/compute/v1/projects/{{ project_id }}/zones/{{ item.zone }}/instances/{{ item.name }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ access_token }}"
+        return_content: yes
+      loop: "{{ instance_details_list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: instance_metadata_results
+
+    - name: Construct full hostnames
+      set_fact:
+        hostname_full_list: >-
+          {{ instance_metadata_results.results | map(attribute='item') | map('combine', {'hostname': "{{ item.name }}.{{ item.zone.split('/')[-1] }}.c.{{ project_id }}.internal"}) | map(attribute='hostname') | list }}
+
+- name: Display full hostnames
+  debug:
+    var: hostname_full_list
