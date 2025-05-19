@@ -26,7 +26,7 @@
     - name: Extract zone and instance name from URI
       set_fact:
         instance_details_list: >-
-          {{ instance_uris | map('extract', r'/(?P<zone>[a-z0-9-]+/zones/[a-z0-9-]+)/instances/(?P<name>[a-z0-9-]+)', ['zone', 'name']) | list }}
+          {{ instance_uris | map('regex_search', r'/zones/(?P<zone>[a-z0-9-]+)/instances/(?P<name>[a-z0-9-]+)', '\g<zone> \g<name>') | map('split', ' ') | map('zip', ['zone', 'name']) | list }}
 
     - name: Fetch details for each instance
       uri:
