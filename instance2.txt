@@ -1,0 +1,12 @@
+    - name: Extract zone and instance name iteratively
+      set_fact:
+        instance_details_list: "{{ instance_details_list | default([]) + [{'zone': item.split('/zones/')[1].split('/instances/')[0], 'name': item.split('/instances/')[1]}] }}"
+      with_items: "{{ instance_uris }}"
+
+    - name: Extract zone and instance name from URI
+      set_fact:
+        instance_details_list: >-
+          {{
+            instance_uris | map('extract', r'/zones/(?P<zone>[a-z0-9-]+)/instances/(?P<name>[a-z0-9-]+)', ['zone', 'name']) |
+            map('zip', ['zone', 'name']) | list
+          }}
