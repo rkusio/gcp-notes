@@ -42,8 +42,7 @@
 
     - name: Construct full hostnames
       set_fact:
-        hostname_full_list: >-
-          {{ instance_metadata_results.results | map(attribute='item') | map('combine', {'hostname': "{{ item.name }}.{{ item.zone.split('/')[-1] }}.c.{{ project_id }}.internal"}) | map(attribute='hostname') | list }}
+        hostname_full_list: "{{ instance_metadata_results.results | map(attribute='item') | map('combine', { 'hostname': (item.name + '.' + item.zone.split('/')[-1] + '.c.' + project_id + '.internal') }) | map(attribute='hostname') | list }}"
 
 - name: Display full hostnames
   debug:
